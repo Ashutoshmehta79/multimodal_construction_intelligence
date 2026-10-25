@@ -240,19 +240,35 @@ def extract_json(text):
     return json.loads(text)
 
 def analyze_image_with_gemini(image, prompt, api_key):
-    """Optional Gemini integration. Key is held in session state, never written to disk."""
+    """Analyze an image using the Gemini API."""
     try:
-        import google.generativeai as genai
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel("gemini-3.8-flash")
-        response = model.generate_content([prompt, image])
+        from google import genai
+        from google.genai import types
+
+        client = genai.Client(api_key=api_key)
+
+        image_buffer = BytesIO()
+        image.save(image_buffer, format="JPEG")
+
+        response = client.models.generate_content(
+            model="gemini-3.8-flash",
+            contents=[
+                prompt,
+                types.Part.from_bytes(
+                    data=image_buffer.getvalue(),
+                    mime_type="image/jpeg",
+                ),
+            ],
+        )
+
         return extract_json(response.text)
+
     except Exception as exc:
         raise RuntimeError(
-            "Gemini analysis failed. Check your API key, model availability, and network connection. "
+            "Gemini analysis failed. Check your API key, model availability, "
+            "and network connection. "
             f"Technical detail: {type(exc).__name__}: {exc}"
         ) from exc
-
 def json_download(data, filename):
     return json.dumps(data, indent=2, ensure_ascii=False).encode("utf-8")
 
